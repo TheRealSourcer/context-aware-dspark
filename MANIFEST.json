@@ -1,0 +1,157 @@
+{
+  "artifact": "Context-Aware DSpark Reproducibility Artifact",
+  "version": "1.0.0",
+  "release_status": "READY FOR HUMAN REVIEW",
+  "files": [
+    {
+      "path": "CITATION.cff",
+      "bytes": 722,
+      "sha256": "86e1860a8d1f443931e1063f1307f056c59f4e35f8385eab33a4702e3e42500e"
+    },
+    {
+      "path": "DATA_DICTIONARY.md",
+      "bytes": 2450,
+      "sha256": "f3da392b162b7320d3758e3ca24114136b71c987dba2af2079aeba54b33b6dbe"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1075,
+      "sha256": "243ebeaa197f793400b6eeab0fa5c46fd2fc912913add9e4e8d7b3aafa228cf9"
+    },
+    {
+      "path": "LICENSE-llama.cpp",
+      "bytes": 1078,
+      "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d"
+    },
+    {
+      "path": "MODELS.md",
+      "bytes": 1846,
+      "sha256": "262b4061dd7645a74c3cfe3e79e2f5d205129b066872ffb73b274f7fe0235ab7"
+    },
+    {
+      "path": "README.md",
+      "bytes": 6669,
+      "sha256": "0caf3e912f095b9338d558c648454f7d7b912eed542cd6c388907c8c3bf707d2"
+    },
+    {
+      "path": "RELEASE_CHECKLIST.md",
+      "bytes": 809,
+      "sha256": "bd6af18e34efe0120817213ec94c00a651217a23132514377b165295c69667f9"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "bytes": 1560,
+      "sha256": "3f6477f461935df3335fadef361df25dd842629f0cf6e98fa9e5808f5ab87ba6"
+    },
+    {
+      "path": "config/extended-methods.json",
+      "bytes": 3264,
+      "sha256": "16d148087ed4455d2c3c4a0dcc36a636970281b7492d1e59bc0f9e8ec953e710"
+    },
+    {
+      "path": "data/humaneval-python-evaluated.jsonl",
+      "bytes": 103899,
+      "sha256": "806af006a81a75c2e5367ddf3d5ca4f21cbf904d261d2b0c355dcfed57e80bf5"
+    },
+    {
+      "path": "data/humaneval-python-generations.jsonl",
+      "bytes": 14034155,
+      "sha256": "d0be33b3bf3504a3ae1b296e502d795de5790a1feb6748d0e35d473b9682b3fd"
+    },
+    {
+      "path": "data/humaneval-python-prompts.jsonl",
+      "bytes": 164770,
+      "sha256": "a442453118dd0d44e751afc282c2cf3d3e303a05c60d54bc1856bf48e65f7fc6"
+    },
+    {
+      "path": "data/humaneval-python-tests.jsonl",
+      "bytes": 134632,
+      "sha256": "806f71af16154c1a92ee293053357307cc3cab43b23f4815e42ba4d7f5bcc853"
+    },
+    {
+      "path": "data/long-context-metrics.jsonl",
+      "bytes": 16399168,
+      "sha256": "30d262ff8d6cfec25b65139588fa20761b64da29ed8eb292dd71c730408372a0"
+    },
+    {
+      "path": "paper/figure_legends.md",
+      "bytes": 1542,
+      "sha256": "8f9a21ae3f0d62f89ac2c07f41b6ae52811cd135bf6ba12290d214378ac827d8"
+    },
+    {
+      "path": "paper/figures/figure_1_workflow.jpg",
+      "bytes": 80679,
+      "sha256": "8ae79b9c969e9fa3f9dcf5ac5f8f741f8c2b6e0349e72585373e5aade54eb29b"
+    },
+    {
+      "path": "paper/figures/figure_2_throughput.jpg",
+      "bytes": 140393,
+      "sha256": "ef1d55c582872537031a9b1a06cffc877e1b6b3bb53ea1f1f1777e207e2ab067"
+    },
+    {
+      "path": "paper/figures/figure_3_efficiency_quality.jpg",
+      "bytes": 147587,
+      "sha256": "d566104a95d77bbe1f8886baa2dc7b4d948ec9b3685ef054aee442730fc84613"
+    },
+    {
+      "path": "paper/manuscript.md",
+      "bytes": 20083,
+      "sha256": "c975be62b80f39a72d7c856a454a7a0d3b03298c783185774a6039ce9464e9f2"
+    },
+    {
+      "path": "paper/supplement.md",
+      "bytes": 4378,
+      "sha256": "9a4c18c0baadb66642597535318ff64b2d60cc148d04909a65836af194074cc4"
+    },
+    {
+      "path": "protocols/jhss-technical-note.md",
+      "bytes": 3099,
+      "sha256": "f793ac8fd80b456976e380ce45a3c31cd0f27827f881ee549be67cef19375613"
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 79,
+      "sha256": "b73014650115af6d6285a50d74f2b88a92f0327b3d2c32014c1062a0363d205f"
+    },
+    {
+      "path": "results/adaptive-summary.json",
+      "bytes": 6876,
+      "sha256": "be93ba7c2c7de2f22540bcc3382b1ccb911b0154643b40293c133463c125b0b1"
+    },
+    {
+      "path": "results/humaneval-python-summary.json",
+      "bytes": 2968,
+      "sha256": "2f7bf9cbc18582f0ec7ad1af78ccd083cbc32f968eaeb4a548d6d02951813a7b"
+    },
+    {
+      "path": "scripts/analyze_adaptive_holdout.py",
+      "bytes": 10338,
+      "sha256": "d6780281435c0295bb3b9cd3165e7bba6d0ff376d202a419eee59609e0311e7b"
+    },
+    {
+      "path": "scripts/benchmark.py",
+      "bytes": 8803,
+      "sha256": "fe89d6404d4d628b83b58d713d9b45d2dd0de1d1501248ffd21a4772b0ddb329"
+    },
+    {
+      "path": "scripts/evaluate_humaneval_python.py",
+      "bytes": 12602,
+      "sha256": "d422f57a41e7082d044c769d10b515b8e3b535d942700d36f54bd67350e7458e"
+    },
+    {
+      "path": "scripts/make_jhss_figures.py",
+      "bytes": 7015,
+      "sha256": "c32455c1a4a15ac45325eb7c2991d086465533785da48b9a5b82f20f8116ae16"
+    },
+    {
+      "path": "scripts/prepare_humaneval_python.py",
+      "bytes": 2491,
+      "sha256": "037ea30efaf0e5f04696e63b9d6221bffdc1a13faf5afece900f86d03883a44f"
+    },
+    {
+      "path": "telemetry.patch",
+      "bytes": 29797,
+      "sha256": "fb0a90027c723d30db0cc6ccdc5b40659295bb09bf1853dc328e3fa78548e208"
+    }
+  ]
+}

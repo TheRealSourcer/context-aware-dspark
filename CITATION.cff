@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this artifact, please cite the accompanying technical note."
+title: "Context-Aware DSpark Reproducibility Artifact"
+type: software
+authors:
+  - given-names: "Vicente"
+    family-names: "Bertolotti"
+version: 1.0.0
+date-released: 2026-08-21
+repository-code: "https://github.com/TheRealSourcer/context-aware-dspark"
+doi: "10.5281/zenodo.22049029"
+license: MIT
+keywords:
+  - speculative decoding
+  - large language models
+  - consumer GPU
+  - inference optimization
+  - DSpark
+  - reproducible benchmarking
+abstract: >-
+  Analysis code, metric data, runtime patch, protocol, and publication sources
+  for a case study of dynamic DSpark confidence thresholds on an AMD Radeon
+  RX 6800.

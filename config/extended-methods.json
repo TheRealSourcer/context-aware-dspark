@@ -1,0 +1,81 @@
+{
+  "runtime": "build-study/bin/llama-server",
+  "target": "models/target/Qwen3-8B-Q4_K_M.gguf",
+  "common_args": [
+    "-ngl", "all",
+    "-c", "8192",
+    "-b", "512",
+    "-ub", "512",
+    "-fa", "on",
+    "-np", "1",
+    "--jinja",
+    "--no-webui"
+  ],
+  "methods": {
+    "baseline": [],
+    "dflash_n4": [
+      "-md", "models/dflash/Qwen3-8B-DFlash.Q8_0.gguf", "-ngld", "all",
+      "--spec-type", "draft-dflash", "--spec-draft-n-max", "4"
+    ],
+    "dflash_n6": [
+      "-md", "models/dflash/Qwen3-8B-DFlash.Q8_0.gguf", "-ngld", "all",
+      "--spec-type", "draft-dflash", "--spec-draft-n-max", "6"
+    ],
+    "dflash_n10": [
+      "-md", "models/dflash/Qwen3-8B-DFlash.Q8_0.gguf", "-ngld", "all",
+      "--spec-type", "draft-dflash", "--spec-draft-n-max", "10"
+    ],
+    "dflash_n15": [
+      "-md", "models/dflash/Qwen3-8B-DFlash.Q8_0.gguf", "-ngld", "all",
+      "--spec-type", "draft-dflash", "--spec-draft-n-max", "15"
+    ],
+    "dflash_n15_p20": [
+      "-md", "models/dflash/Qwen3-8B-DFlash.Q8_0.gguf", "-ngld", "all",
+      "--spec-type", "draft-dflash", "--spec-draft-n-max", "15", "--spec-draft-p-min", "0.20"
+    ],
+    "dflash_n15_p40": [
+      "-md", "models/dflash/Qwen3-8B-DFlash.Q8_0.gguf", "-ngld", "all",
+      "--spec-type", "draft-dflash", "--spec-draft-n-max", "15", "--spec-draft-p-min", "0.40"
+    ],
+    "dspark_n4": [
+      "-md", "models/dspark-deepspec-bf16.gguf", "-ngld", "all",
+      "--spec-type", "draft-dspark", "--spec-draft-n-max", "4"
+    ],
+    "dspark_n7": [
+      "-md", "models/dspark-deepspec-bf16.gguf", "-ngld", "all",
+      "--spec-type", "draft-dspark", "--spec-draft-n-max", "7"
+    ],
+    "dspark_n7_p20": [
+      "-md", "models/dspark-deepspec-bf16.gguf", "-ngld", "all",
+      "--spec-type", "draft-dspark", "--spec-draft-n-max", "7", "--spec-draft-p-min", "0.20"
+    ],
+    "dspark_n7_p40": [
+      "-md", "models/dspark-deepspec-bf16.gguf", "-ngld", "all",
+      "--spec-type", "draft-dspark", "--spec-draft-n-max", "7", "--spec-draft-p-min", "0.40"
+    ],
+    "dspark_n7_p60": [
+      "-md", "models/dspark-deepspec-bf16.gguf", "-ngld", "all",
+      "--spec-type", "draft-dspark", "--spec-draft-n-max", "7", "--spec-draft-p-min", "0.60"
+    ],
+    "dspark_n7_p80": [
+      "-md", "models/dspark-deepspec-bf16.gguf", "-ngld", "all",
+      "--spec-type", "draft-dspark", "--spec-draft-n-max", "7", "--spec-draft-p-min", "0.80"
+    ],
+    "dspark_n7_dynamic": [
+      "-md", "models/dspark-deepspec-bf16.gguf", "-ngld", "all",
+      "--spec-type", "draft-dspark", "--spec-draft-n-max", "7",
+      "--spec-draft-p-min-code", "0.40", "--spec-draft-p-min-string", "0.20"
+    ],
+    "dspark_n7_stop": [
+      "-md", "models/dspark-deepspec-bf16.gguf", "-ngld", "all",
+      "--spec-type", "draft-dspark", "--spec-draft-n-max", "7",
+      "--spec-draft-stop-window", "16", "--spec-draft-stop-min-tokens", "64", "--spec-draft-stop-mean", "0.50"
+    ],
+    "dspark_n7_adaptive": [
+      "-md", "models/dspark-deepspec-bf16.gguf", "-ngld", "all",
+      "--spec-type", "draft-dspark", "--spec-draft-n-max", "7",
+      "--spec-draft-p-min-code", "0.40", "--spec-draft-p-min-string", "0.20",
+      "--spec-draft-stop-window", "16", "--spec-draft-stop-min-tokens", "64", "--spec-draft-stop-mean", "0.50"
+    ]
+  }
+}

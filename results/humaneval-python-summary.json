@@ -1,0 +1,110 @@
+{
+  "container_image": "docker.io/library/python@sha256:285a71327884a4d50efbea30104473b0fa43ecefa499458899670ca30dae76e5",
+  "methods": {
+    "baseline": {
+      "accuracy": 0.7865853658536586,
+      "ci_low": 0.725609756097561,
+      "ci_high": 0.8475609756097561,
+      "passed": 129,
+      "status_counts": {
+        "passed": 129,
+        "runtime_error": 8,
+        "test_failure": 27
+      },
+      "total": 164,
+      "decode_tps_mean": 54.310105867153524,
+      "draft_tokens": 0,
+      "accepted_tokens": 0,
+      "memory_clock_values": [
+        673.0
+      ]
+    },
+    "dspark_n7": {
+      "accuracy": 0.7926829268292683,
+      "ci_low": 0.7317073170731707,
+      "ci_high": 0.8536585365853658,
+      "passed": 130,
+      "status_counts": {
+        "passed": 130,
+        "runtime_error": 8,
+        "test_failure": 26
+      },
+      "total": 164,
+      "decode_tps_mean": 123.51783980092746,
+      "draft_tokens": 74165,
+      "accepted_tokens": 61843,
+      "memory_clock_values": [
+        673.0
+      ],
+      "difference_vs_baseline": {
+        "difference": 0.006097560975609756,
+        "ci_low": 0.0,
+        "ci_high": 0.018292682926829267,
+        "gained": 1,
+        "lost": 0
+      },
+      "exact_outputs_vs_baseline": 151,
+      "speedup_vs_baseline": {
+        "reference": "baseline",
+        "geomean": 2.2441922861152657,
+        "ci_low": 2.1844501060191477,
+        "ci_high": 2.3031114606602507
+      }
+    },
+    "dspark_n7_dynamic": {
+      "accuracy": 0.7926829268292683,
+      "ci_low": 0.7317073170731707,
+      "ci_high": 0.8536585365853658,
+      "passed": 130,
+      "status_counts": {
+        "passed": 130,
+        "runtime_error": 8,
+        "test_failure": 26
+      },
+      "total": 164,
+      "decode_tps_mean": 122.8061081054028,
+      "draft_tokens": 73829,
+      "accepted_tokens": 61816,
+      "memory_clock_values": [
+        673.0
+      ],
+      "difference_vs_baseline": {
+        "difference": 0.006097560975609756,
+        "ci_low": 0.0,
+        "ci_high": 0.018292682926829267,
+        "gained": 1,
+        "lost": 0
+      },
+      "exact_outputs_vs_baseline": 152,
+      "speedup_vs_baseline": {
+        "reference": "baseline",
+        "geomean": 2.231438670144716,
+        "ci_low": 2.1721564943020133,
+        "ci_high": 2.28992551423456
+      },
+      "difference_vs_dspark_n7": {
+        "difference": 0.0,
+        "ci_low": 0.0,
+        "ci_high": 0.0,
+        "gained": 0,
+        "lost": 0
+      },
+      "exact_outputs_vs_dspark_n7": 163,
+      "speedup_vs_dspark_n7": {
+        "reference": "dspark_n7",
+        "geomean": 0.9943170573887736,
+        "ci_low": 0.9926629345578658,
+        "ci_high": 0.9959303274249168
+      }
+    }
+  },
+  "quality_repeat": 0,
+  "results_sha256": "d0be33b3bf3504a3ae1b296e502d795de5790a1feb6748d0e35d473b9682b3fd",
+  "tasks": 164,
+  "tests_sha256": "806f71af16154c1a92ee293053357307cc3cab43b23f4815e42ba4d7f5bcc853",
+  "timing_repeats": [
+    0,
+    1,
+    2
+  ]
+}

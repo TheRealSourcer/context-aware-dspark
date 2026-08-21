@@ -1,0 +1,7 @@
+# Figure Legends
+
+**Figure 1. Dynamic confidence workflow.** DSpark computes seven parallel draft positions and a confidence for each position. Before each block, a lexer classifies generated output as inside or outside a string literal and selects the frozen threshold. The scheduler keeps the longest prefix satisfying that threshold. The full draft graph is still evaluated, so the policy reduces target verification work rather than all draft computation.
+
+**Figure 2. Dynamic-to-fixed DSpark throughput.** (a) Each purple point is the geometric mean paired ratio for one independent long-context source example after averaging three repeats and four context variants. The orange diamond is the pooled geometric mean, and the bar is the source-cluster bootstrap 95% interval. (b) Purple points show descriptive ratios of arithmetic mean decode throughput at each long-context prompt length. The gray square shows the separately measured three-repeat HumanEval short-function ratio. The workloads used different sampled memory-clock states, so their absolute throughput values are not compared.
+
+**Figure 3. Draft efficiency and executable quality.** (a) Proposed and accepted draft-token totals for fixed and dynamic DSpark across 72 long-context holdout requests per method. Dynamic thresholds reduced proposals by 12.3% while accepted tokens decreased by 0.17%. (b) HumanEval tasks passing all official tests for target-only, fixed DSpark, and dynamic DSpark. Fixed and dynamic DSpark had identical pass/fail outcomes on all 164 tasks.

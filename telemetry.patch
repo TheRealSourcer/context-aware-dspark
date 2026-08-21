@@ -1,0 +1,682 @@
+diff --git a/common/arg.cpp b/common/arg.cpp
+index 305938fcb..e51d31ae4 100644
+--- a/common/arg.cpp
++++ b/common/arg.cpp
+@@ -4048,6 +4048,61 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
+             params.speculative.draft.p_min = std::stof(value);
+         }
+     ).set_spec().set_examples({LLAMA_EXAMPLE_SPECULATIVE, LLAMA_EXAMPLE_SERVER, LLAMA_EXAMPLE_CLI}).set_env("LLAMA_ARG_SPEC_DRAFT_P_MIN"));
++    add_opt(common_arg(
++        {"--spec-draft-p-min-code"}, "P",
++        "DSpark confidence threshold outside string literals (-1 disables)",
++        [](common_params & params, const std::string & value) {
++            params.speculative.draft.p_min_code = std::stof(value);
++            if (!std::isfinite(params.speculative.draft.p_min_code) ||
++                    (params.speculative.draft.p_min_code != -1.0f &&
++                     (params.speculative.draft.p_min_code < 0.0f || params.speculative.draft.p_min_code > 1.0f))) {
++                throw std::invalid_argument("DSpark code confidence threshold must be between 0 and 1, or -1");
++            }
++        }
++    ).set_spec().set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_SPEC_DRAFT_P_MIN_CODE"));
++    add_opt(common_arg(
++        {"--spec-draft-p-min-string"}, "P",
++        "DSpark confidence threshold inside string literals (-1 disables)",
++        [](common_params & params, const std::string & value) {
++            params.speculative.draft.p_min_string = std::stof(value);
++            if (!std::isfinite(params.speculative.draft.p_min_string) ||
++                    (params.speculative.draft.p_min_string != -1.0f &&
++                     (params.speculative.draft.p_min_string < 0.0f || params.speculative.draft.p_min_string > 1.0f))) {
++                throw std::invalid_argument("DSpark string confidence threshold must be between 0 and 1, or -1");
++            }
++        }
++    ).set_spec().set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_SPEC_DRAFT_P_MIN_STRING"));
++    add_opt(common_arg(
++        {"--spec-draft-stop-window"}, "N",
++        "terminally stop DSpark after N weak draft attempts (0 disables)",
++        [](common_params & params, int value) {
++            if (value < 0) {
++                throw std::invalid_argument("DSpark stop window must be non-negative");
++            }
++            params.speculative.draft.adaptive_stop_window = value;
++        }
++    ).set_spec().set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_SPEC_DRAFT_STOP_WINDOW"));
++    add_opt(common_arg(
++        {"--spec-draft-stop-min-tokens"}, "N",
++        "minimum generated tokens before terminal DSpark stop",
++        [](common_params & params, int value) {
++            if (value < 0) {
++                throw std::invalid_argument("DSpark stop minimum tokens must be non-negative");
++            }
++            params.speculative.draft.adaptive_stop_min_tokens = value;
++        }
++    ).set_spec().set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_SPEC_DRAFT_STOP_MIN_TOKENS"));
++    add_opt(common_arg(
++        {"--spec-draft-stop-mean"}, "N",
++        "terminally stop DSpark when mean accepted draft tokens in the window is at most N",
++        [](common_params & params, const std::string & value) {
++            params.speculative.draft.adaptive_stop_mean = std::stof(value);
++            if (!std::isfinite(params.speculative.draft.adaptive_stop_mean) ||
++                    params.speculative.draft.adaptive_stop_mean < 0.0f) {
++                throw std::invalid_argument("DSpark stop mean must be non-negative");
++            }
++        }
++    ).set_spec().set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_SPEC_DRAFT_STOP_MEAN"));
+     add_opt(common_arg(
+         {"--spec-draft-backend-sampling"},
+         {"--no-spec-draft-backend-sampling"},
+diff --git a/common/common.h b/common/common.h
+index 919c0ea10..815f1ab22 100644
+--- a/common/common.h
++++ b/common/common.h
+@@ -327,6 +327,12 @@ struct common_params_speculative_draft {
+ 
+     float p_split = 0.1f; // speculative decoding split probability
+     float p_min   = 0.0f; // minimum speculative decoding probability (greedy)
++    float p_min_code   = -1.0f; // per-block threshold outside string literals (-1 disables)
++    float p_min_string = -1.0f; // per-block threshold inside string literals (-1 disables)
++
++    int32_t adaptive_stop_window     = 0;  // terminally stop after this many weak draft attempts (0 disables)
++    int32_t adaptive_stop_min_tokens = 64; // minimum generated tokens before terminal stop
++    float adaptive_stop_mean         = 0.0f; // maximum mean accepted draft tokens in the stop window
+ 
+     bool backend_sampling = true; // offload draft sampling to the backend (default: on)
+ 
+diff --git a/common/speculative.cpp b/common/speculative.cpp
+index 514fe8521..04a999f1c 100644
+--- a/common/speculative.cpp
++++ b/common/speculative.cpp
+@@ -168,6 +168,8 @@ struct common_speculative_impl {
+ 
+     virtual void accept(llama_seq_id seq_id, uint16_t n_accepted, bool is_other) = 0;
+ 
++    virtual void set_enabled(llama_seq_id /*seq_id*/, bool /*enabled*/) {}
++
+     // (optional) serialize/restore per-seq internal state (e.g. eagle3's deferred boundary).
+     virtual bool get_state(llama_seq_id /*seq_id*/, std::vector<uint8_t> & /*data*/) const { return false; }
+     virtual void set_state(llama_seq_id /*seq_id*/, const std::vector<uint8_t> & /*data*/) {}
+@@ -931,6 +933,7 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
+ 
+     // draft-dspark: the draft carries a Markov head and uses an anchor-first block layout
+     const bool is_dspark;
++    std::vector<bool> seq_enabled;
+ 
+     const int32_t * target_layer_ids   = nullptr; // model_dft's extract layer indices
+     uint32_t        target_layer_ids_n = 0;
+@@ -943,6 +946,7 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
+         : common_speculative_impl(type, n_seq)
+         , params(params.draft)
+         , is_dspark(type == COMMON_SPECULATIVE_TYPE_DRAFT_DSPARK)
++        , seq_enabled(n_seq, true)
+     {
+         auto * ctx_tgt = this->params.ctx_tgt;
+         auto * ctx_dft = this->params.ctx_dft;
+@@ -1027,6 +1031,21 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
+         }
+     }
+ 
++    void set_enabled(llama_seq_id seq_id, bool enabled) override {
++        if (!is_dspark) {
++            return;
++        }
++        if (seq_id < 0 || seq_id >= (llama_seq_id) seq_enabled.size()) {
++            return;
++        }
++        seq_enabled[seq_id] = enabled;
++
++        const bool any_enabled = std::any_of(seq_enabled.begin(), seq_enabled.end(), [](bool value) { return value; });
++        for (uint32_t k = 0; k < target_layer_ids_n; ++k) {
++            llama_set_embeddings_layer_inp(params.ctx_tgt, (uint32_t) target_layer_ids[k], any_enabled);
++        }
++    }
++
+     bool process(const llama_batch & batch_in) override {
+         if (batch_in.n_tokens <= 0) {
+             return true;
+@@ -1059,7 +1078,7 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
+         const int32_t n_ubatch = (int32_t) llama_n_ubatch(ctx_dft);
+ 
+         for (llama_seq_id seq_id = 0; seq_id < (llama_seq_id) n_seq; ++seq_id) {
+-            if (i_batch_beg[seq_id] < 0) {
++            if (i_batch_beg[seq_id] < 0 || !seq_enabled[seq_id]) {
+                 continue;
+             }
+             const int32_t n_rows = i_batch_end[seq_id] - i_batch_beg[seq_id] + 1;
+@@ -1136,7 +1155,7 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
+ 
+         for (llama_seq_id seq_id = 0; seq_id < (llama_seq_id) n_seq; ++seq_id) {
+             auto & dp = dparams[seq_id];
+-            if (!dp.drafting) {
++            if (!dp.drafting || !seq_enabled[seq_id]) {
+                 continue;
+             }
+ 
+@@ -1144,7 +1163,10 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
+ 
+             const int32_t n = (int32_t) dp.n_past;
+ 
+-            const int32_t n_draft = params.n_max;
++            const int32_t n_draft = dp.n_max >= 0 ? std::min(params.n_max, dp.n_max) : params.n_max;
++            if (n_draft <= 0) {
++                continue;
++            }
+ 
+             const int32_t n_block_tokens = n_draft + (is_dspark ? 0 : 1);
+             i_block_beg[seq_id] = batch.n_tokens;
+@@ -1181,12 +1203,21 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
+             if (is_dspark) {
+                 // DSpark predicts the next token from position 0 and optionally truncates
+                 // at the first position below the confidence threshold.
+-                const float * conf = params.p_min > 0.0f ? llama_get_embeddings_nextn(ctx_dft) : nullptr;
++                const float threshold = dp.p_min >= 0.0f ? dp.p_min : params.p_min;
++                const float * conf = llama_get_embeddings_nextn(ctx_dft);
++                GGML_ASSERT(conf && "DSpark produced no confidence values");
++
++                if (dp.confidences) {
++                    dp.confidences->clear();
++                    for (int32_t i = 0; i < n_block_tokens; ++i) {
++                        dp.confidences->push_back(conf[(size_t) (beg + i) * n_embd_dec]);
++                    }
++                }
+ 
+                 for (int32_t i = 0; i < n_block_tokens; ++i) {
+                     const int32_t idx = beg + i;
+ 
+-                    if (conf && conf[(size_t) idx * n_embd_dec] < params.p_min) {
++                    if (conf[(size_t) idx * n_embd_dec] < threshold) {
+                         break;
+                     }
+ 
+@@ -2544,6 +2575,15 @@ common_speculative_draft_params & common_speculative_get_draft_params(
+     return spec->dparams[seq_id];
+ }
+ 
++void common_speculative_set_dspark_enabled(common_speculative * spec, llama_seq_id seq_id, bool enabled) {
++    if (spec == nullptr || seq_id < 0 || seq_id >= (llama_seq_id) spec->dparams.size()) {
++        return;
++    }
++    for (auto & impl : spec->impls) {
++        impl->set_enabled(seq_id, enabled);
++    }
++}
++
+ void common_speculative_begin(common_speculative * spec, llama_seq_id seq_id, const llama_tokens & prompt) {
+     if (spec == nullptr) {
+         return;
+diff --git a/common/speculative.h b/common/speculative.h
+index 062bf2093..8243ee6e3 100644
+--- a/common/speculative.h
++++ b/common/speculative.h
+@@ -39,6 +39,7 @@ struct common_speculative_draft_params {
+     // overrides individual configurations (-1 disabled)
+     // can be used to constraint the max draft based on the remaining context size
+     int32_t n_max = -1;
++    float p_min = -1.0f;
+ 
+     llama_pos   n_past;
+     llama_token id_last;
+@@ -48,10 +49,16 @@ struct common_speculative_draft_params {
+ 
+     // the generated draft from the last _draft() call
+     llama_tokens * result;
++
++    // DSpark confidence values for the computed block
++    std::vector<float> * confidences = nullptr;
+ };
+ 
+ common_speculative_draft_params & common_speculative_get_draft_params(common_speculative * spec, llama_seq_id seq_id);
+ 
++// enable or terminally disable DSpark processing for a sequence
++void common_speculative_set_dspark_enabled(common_speculative * spec, llama_seq_id seq_id, bool enabled);
++
+ // optionally call once at the beginning of a new generation
+ void common_speculative_begin(common_speculative * spec, llama_seq_id seq_id, const llama_tokens & prompt);
+ 
+diff --git a/examples/speculative-simple/speculative-simple.cpp b/examples/speculative-simple/speculative-simple.cpp
+index d87ba48be..0b218af66 100644
+--- a/examples/speculative-simple/speculative-simple.cpp
++++ b/examples/speculative-simple/speculative-simple.cpp
+@@ -182,10 +182,12 @@ int main(int argc, char ** argv) {
+             common_speculative_get_draft_params(spec, seq_id) = {
+                 /* .drafting   = */ true,
+                 /* .n_max      = */ -1,
++                /* .p_min      = */ -1.0f,
+                 /* .n_past     = */ n_past,
+                 /* .id_last    = */ id_last,
+                 /* .prompt     = */ &prompt_tgt,
+                 /* .result     = */ &draft, // output
++                /* .confidences = */ nullptr,
+             };
+             common_speculative_draft(spec);
+ 
+diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
+index 5d2798cc1..65bfd9b0f 100644
+--- a/tools/server/server-context.cpp
++++ b/tools/server/server-context.cpp
+@@ -20,8 +20,10 @@
+ #include <algorithm>
+ #include <cstddef>
+ #include <cinttypes>
++#include <deque>
+ #include <exception>
+ #include <memory>
++#include <numeric>
+ #include <filesystem>
+ #include <utility>
+ #include <fstream>
+@@ -66,6 +68,69 @@ enum slot_state {
+ 
+ struct server_slot; // forward declaration
+ 
++static bool server_is_in_string_literal(const std::string & text) {
++    char quote = 0;
++    bool escaped = false;
++    bool line_comment = false;
++    bool block_comment = false;
++
++    for (size_t i = 0; i < text.size(); ++i) {
++        const char c = text[i];
++        const char next = i + 1 < text.size() ? text[i + 1] : '\0';
++
++        if (line_comment) {
++            line_comment = c != '\n';
++            continue;
++        }
++        if (block_comment) {
++            if (c == '*' && next == '/') {
++                block_comment = false;
++                ++i;
++            }
++            continue;
++        }
++        if (quote != 0) {
++            if (escaped) {
++                escaped = false;
++            } else if (c == '\\') {
++                escaped = true;
++            } else if (c == quote) {
++                quote = 0;
++            }
++            continue;
++        }
++        if (c == '/' && next == '/') {
++            line_comment = true;
++            ++i;
++        } else if (c == '/' && next == '*') {
++            block_comment = true;
++            ++i;
++        } else if (c == '#') {
++            line_comment = true;
++        } else if (c == '`' && next == '`' && i + 2 < text.size() && text[i + 2] == '`') {
++            i += 2;
++        } else if (c == '\'' || c == '"' || c == '`') {
++            quote = c;
++        }
++    }
++
++    return quote != 0;
++}
++
++static bool server_is_dspark_only(const common_params_speculative & params) {
++    bool has_dspark = false;
++    for (const auto type : params.types) {
++        if (type == COMMON_SPECULATIVE_TYPE_NONE) {
++            continue;
++        }
++        if (type != COMMON_SPECULATIVE_TYPE_DRAFT_DSPARK) {
++            return false;
++        }
++        has_dspark = true;
++    }
++    return has_dspark;
++}
++
+ struct server_batch {
+     llama_batch batch;
+     bool batch_rendered = false;
+@@ -206,13 +271,21 @@ struct server_slot {
+     mtmd::batch_ptr mbatch = nullptr;
+ 
+     // speculative decoding
+-    common_speculative * spec;
++    common_speculative * spec = nullptr;
+ 
+     llama_tokens spec_draft;
+     llama_tokens spec_prompt;
+     std::vector<int32_t> spec_i_batch;
+     common_prompt_checkpoint spec_ckpt;
+     bool spec_is_replay = false;
++    bool spec_terminal_off = false;
++    bool spec_needs_rebuild = false;
++    int32_t spec_terminal_off_position = -1;
++    float spec_p_min = -1.0f;
++    bool spec_in_string = false;
++    std::vector<float> spec_confidences;
++    std::deque<int32_t> spec_recent_accepted;
++    int32_t spec_pending_attempt = -1;
+ 
+     // TODO: move members that belong to the task (such as `generated_text`, `has_new_line`) to task_results_state
+     //       see https://github.com/ggml-org/llama.cpp/pull/18283#issuecomment-3710175837
+@@ -254,7 +327,7 @@ struct server_slot {
+     server_prompt prompt;
+ 
+     bool prompt_save(server_prompt_cache & prompt_cache) const {
+-        if (prompt.tokens.size() == 0) {
++        if (prompt.tokens.size() == 0 || spec_needs_rebuild) {
+             return false;
+         }
+ 
+@@ -328,12 +401,57 @@ struct server_slot {
+     int32_t n_draft_total = 0;      // Total draft tokens generated
+     int32_t n_draft_accepted = 0;   // Draft tokens actually accepted
+     int32_t n_draft_verif_steps = 0; // Total draft token verification steps by the target model
++    int32_t n_draft_attempts = 0;
++    int32_t n_draft_empty_attempts = 0;
++    double t_draft_generation = 0.0;
++    std::vector<int32_t> n_proposed_per_pos; // Proposed tokens per draft position
+     std::vector<int32_t> n_accepted_per_pos; // Accepted tokens per draft position
++    json draft_blocks = json::array();
++    json draft_attempts = json::array();
++
++    float get_spec_p_min(const common_params_speculative_draft & params) const {
++        const bool adaptive = params.p_min_code >= 0.0f || params.p_min_string >= 0.0f;
++        if (!adaptive) {
++            return params.p_min;
++        }
++        const float selected = spec_in_string ? params.p_min_string : params.p_min_code;
++        return selected >= 0.0f ? selected : params.p_min;
++    }
++
++    void update_spec_stop(const common_params_speculative_draft & params, int32_t n_accepted) {
++        if (spec_terminal_off || params.adaptive_stop_window <= 0) {
++            return;
++        }
++        spec_recent_accepted.push_back(n_accepted);
++        while ((int32_t) spec_recent_accepted.size() > params.adaptive_stop_window) {
++            spec_recent_accepted.pop_front();
++        }
++        if (n_decoded < params.adaptive_stop_min_tokens ||
++                (int32_t) spec_recent_accepted.size() < params.adaptive_stop_window) {
++            return;
++        }
++        const float mean = std::accumulate(spec_recent_accepted.begin(), spec_recent_accepted.end(), 0.0f) /
++            spec_recent_accepted.size();
++        if (mean <= params.adaptive_stop_mean) {
++            spec_terminal_off = true;
++            spec_needs_rebuild = true;
++            spec_terminal_off_position = n_decoded;
++            common_speculative_set_dspark_enabled(spec, id, false);
++        }
++    }
+ 
+     void reset() {
+         SLT_DBG(*this, "%s", "\n");
+ 
+         spec_is_replay = false;
++        spec_terminal_off = false;
++        spec_terminal_off_position = -1;
++        spec_p_min = -1.0f;
++        spec_in_string = false;
++        spec_confidences.clear();
++        spec_recent_accepted.clear();
++        spec_pending_attempt = -1;
++        common_speculative_set_dspark_enabled(spec, id, true);
+ 
+         n_prompt_tokens_cache = 0;
+ 
+@@ -358,7 +476,13 @@ struct server_slot {
+         n_draft_total = 0;
+         n_draft_accepted = 0;
+         n_draft_verif_steps = 0;
++        n_draft_attempts = 0;
++        n_draft_empty_attempts = 0;
++        t_draft_generation = 0.0;
++        n_proposed_per_pos.clear();
+         n_accepted_per_pos.clear();
++        draft_blocks = json::array();
++        draft_attempts = json::array();
+ 
+         task_prev = std::move(task);
+         task.reset();
+@@ -558,9 +682,18 @@ struct server_slot {
+         timings.predicted_per_second   = 1e3 / t_token_generation * n_decoded;
+ 
+         // Add speculative metrics
+-        if (n_draft_total > 0) {
++        if (n_draft_attempts > 0) {
+             timings.draft_n          = n_draft_total;
+             timings.draft_n_accepted = n_draft_accepted;
++            timings.draft_n_steps = n_draft_verif_steps;
++            timings.draft_n_attempts = n_draft_attempts;
++            timings.draft_n_empty_attempts = n_draft_empty_attempts;
++            timings.draft_terminal_off_position = spec_terminal_off_position;
++            timings.draft_ms = t_draft_generation;
++            timings.draft_n_proposed_per_pos = n_proposed_per_pos;
++            timings.draft_n_accepted_per_pos = n_accepted_per_pos;
++            timings.draft_blocks = draft_blocks;
++            timings.draft_attempts = draft_attempts;
+         }
+ 
+         return timings;
+@@ -2962,6 +3095,7 @@ private:
+ 
+         std::vector<server_slot *> generating;
+         std::vector<server_slot *> drafting;
++        const bool adaptive_dspark = server_is_dspark_only(params_base.speculative);
+ 
+         // determine which slots are generating and drafting
+         iterate(slots, [&](server_slot & slot) {
+@@ -2986,7 +3120,7 @@ private:
+ 
+                 const int n_draft_max = slot.get_n_draft_max();
+ 
+-                if (n_draft_max > 0) {
++                if (n_draft_max > 0 && !slot.spec_terminal_off) {
+                     GGML_ASSERT(slot.can_speculate());
+ 
+                     if (!slot.spec_draft.empty()) {
+@@ -3007,14 +3141,20 @@ private:
+                         }
+ 
+                         slot.spec_prompt = slot.prompt.tokens.get_text_tokens();
++                        slot.spec_confidences.clear();
++                        slot.spec_in_string = server_is_in_string_literal(slot.generated_text);
++                        slot.spec_p_min = adaptive_dspark ?
++                            slot.get_spec_p_min(params_base.speculative.draft) : params_base.speculative.draft.p_min;
+ 
+                         common_speculative_get_draft_params(spec.get(), slot.id) = {
+                             /* .drafting = */ true,
+                             /* .n_max    = */ n_draft_max,
++                            /* .p_min    = */ slot.spec_p_min,
+                             /* .n_past   = */ slot.prompt.n_tokens(),
+                             /* .id_last  = */ slot.sampled,
+                             /* .prompt   = */ &slot.spec_prompt,
+                             /* .result   = */ &slot.spec_draft,
++                            /* .confidences = */ &slot.spec_confidences,
+                         };
+ 
+                         drafting.push_back(&slot);
+@@ -3025,7 +3165,37 @@ private:
+ 
+         // generate the actual drafts (if any)
+         {
++            const int64_t t_start = ggml_time_us();
+             common_speculative_draft(spec.get());
++            const double draft_ms = (ggml_time_us() - t_start) / 1e3;
++
++            iterate(drafting, [&](server_slot & slot) {
++                slot.n_draft_attempts++;
++                slot.t_draft_generation += draft_ms;
++                slot.draft_attempts.push_back({
++                    {"attempt", slot.n_draft_attempts},
++                    {"context_position", slot.prompt.n_tokens()},
++                    {"generated_position", slot.n_decoded},
++                    {"threshold", slot.spec_p_min},
++                    {"inside_string", slot.spec_in_string},
++                    {"confidences", slot.spec_confidences},
++                    {"proposed", slot.spec_draft.size()},
++                    {"draft_ms", draft_ms},
++                    {"accepted", nullptr},
++                    {"verification_passes", 0},
++                    {"replayed", false},
++                    {"outcome", slot.spec_draft.empty() ? "empty" : "pending"},
++                });
++                slot.spec_pending_attempt = slot.draft_attempts.size() - 1;
++                if (slot.spec_draft.empty()) {
++                    slot.n_draft_empty_attempts++;
++                    slot.draft_attempts[slot.spec_pending_attempt]["accepted"] = 0;
++                    slot.spec_pending_attempt = -1;
++                    if (adaptive_dspark) {
++                        slot.update_spec_stop(params_base.speculative.draft, 0);
++                    }
++                }
++            });
+         }
+ 
+         // make checkpoints if needed
+@@ -3270,6 +3440,11 @@ private:
+                                 n_past = 0;
+                             }
+ 
++                            if (slot.spec_needs_rebuild) {
++                                n_past = 0;
++                                slot.prompt.checkpoints.clear();
++                            }
++
+                             llama_pos pos_next = slot.prompt.tokens.pos_next(n_past);
+ 
+                             // ref: https://github.com/ggml-org/llama.cpp/pull/24110
+@@ -3701,6 +3876,12 @@ private:
+             throw std::runtime_error("failed to process speculative batch");
+         }
+ 
++        for (auto & slot : slots) {
++            if (slot.state == SLOT_STATE_DONE_PROMPT && slot.spec_needs_rebuild) {
++                slot.spec_needs_rebuild = false;
++            }
++        }
++
+         // handle `n_cmpl > 1` tasks - when the main prompt is processed, activate all child tasks too
+         for (auto & slot : slots) {
+             if (slot.state == SLOT_STATE_DONE_PROMPT && slot.task->is_parent()) {
+@@ -3728,6 +3909,8 @@ private:
+     }
+ 
+     void post_decode(int32_t n_batch_tokens, int32_t off, llama_batch & batch_view) {
++        const bool adaptive_dspark = server_is_dspark_only(params_base.speculative);
++
+         // for checking if a given batch index is inside batch_view
+         auto is_inside_view = [&](int32_t idx) {
+             return idx >= off && idx < off + n_batch_tokens;
+@@ -3881,6 +4064,14 @@ private:
+                         // partial acceptance is not supported by the context -> truncate the draft and restore the state
+                         slot.spec_is_replay = true;
+                         slot.spec_draft = std::move(accepted);
++                        slot.n_draft_verif_steps++;
++                        if (slot.spec_pending_attempt >= 0) {
++                            auto & attempt = slot.draft_attempts[slot.spec_pending_attempt];
++                            attempt["accepted"] = slot.spec_draft.size() - 1;
++                            attempt["verification_passes"] = 1;
++                            attempt["replayed"] = true;
++                            attempt["outcome"] = "replay";
++                        }
+ 
+                         const auto & ckpt = slot.spec_ckpt;
+ 
+@@ -3922,16 +4113,42 @@ private:
+ 
+             slot.t_token_generation = std::max<int64_t>(1, t_now - slot.t_start_generation) / 1e3;
+ 
++            size_t n_proposed = n_draft;
++            int32_t context_position = slot.prompt.n_tokens() - n_draft;
++            int32_t generated_position = slot.n_decoded;
++            if (slot.spec_pending_attempt >= 0) {
++                auto & attempt = slot.draft_attempts[slot.spec_pending_attempt];
++                n_proposed = attempt.value("proposed", n_draft);
++                context_position = attempt.value("context_position", context_position);
++                generated_position = attempt.value("generated_position", generated_position);
++                attempt["accepted"] = n_accepted;
++                attempt["verification_passes"] = attempt.value("verification_passes", 0) + 1;
++                attempt["outcome"] = "verified";
++                slot.spec_pending_attempt = -1;
++            }
++
+             // update how many tokens out of those tested were accepted
+             slot.n_draft_accepted += n_accepted;
+             slot.n_draft_verif_steps += 1;
+ 
++            if (slot.n_proposed_per_pos.empty()) {
++                slot.n_proposed_per_pos.resize(common_speculative_n_max(&params_base.speculative), 0);
++            }
+             if (slot.n_accepted_per_pos.empty()) {
+                 slot.n_accepted_per_pos.resize(common_speculative_n_max(&params_base.speculative), 0);
+             }
++            for (size_t i = 0; i < n_proposed && i < slot.n_proposed_per_pos.size(); ++i) {
++                slot.n_proposed_per_pos[i]++;
++            }
+             for (size_t i = 0; i < n_accepted && i < slot.n_accepted_per_pos.size(); ++i) {
+                 slot.n_accepted_per_pos[i]++;
+             }
++            slot.draft_blocks.push_back({
++                {"context_position", context_position},
++                {"generated_position", generated_position},
++                {"proposed", n_proposed},
++                {"accepted", n_accepted},
++            });
+ 
+             // add accepted tokens to the prompt
+             slot.prompt.tokens.keep_first(slot.prompt.n_tokens() - n_draft);
+@@ -3963,6 +4180,10 @@ private:
+                 }
+             }
+ 
++            if (adaptive_dspark) {
++                slot.update_spec_stop(params_base.speculative.draft, n_accepted);
++            }
++
+             slot.print_timings_tg();
+ 
+             SLT_DBG(slot, "accepted %d/%d draft tokens, new n_tokens = %d\n", (int) n_accepted, (int) n_draft, slot.prompt.n_tokens());
+diff --git a/tools/server/server-task.cpp b/tools/server/server-task.cpp
+index 070f1ade2..14a8666f1 100644
+--- a/tools/server/server-task.cpp
++++ b/tools/server/server-task.cpp
+@@ -256,9 +256,18 @@ json result_timings::to_json() const {
+         {"predicted_per_second",   predicted_per_second},
+     };
+ 
+-    if (draft_n > 0) {
++    if (draft_n_attempts > 0) {
+         base["draft_n"] = draft_n;
+         base["draft_n_accepted"] = draft_n_accepted;
++        base["draft_n_steps"] = draft_n_steps;
++        base["draft_n_attempts"] = draft_n_attempts;
++        base["draft_n_empty_attempts"] = draft_n_empty_attempts;
++        base["draft_terminal_off_position"] = draft_terminal_off_position;
++        base["draft_ms"] = draft_ms;
++        base["draft_n_proposed_per_pos"] = draft_n_proposed_per_pos;
++        base["draft_n_accepted_per_pos"] = draft_n_accepted_per_pos;
++        base["draft_blocks"] = draft_blocks;
++        base["draft_attempts"] = draft_attempts;
+     }
+ 
+     return base;
+diff --git a/tools/server/server-task.h b/tools/server/server-task.h
+index 411d91807..f3f0900b1 100644
+--- a/tools/server/server-task.h
++++ b/tools/server/server-task.h
+@@ -275,6 +275,15 @@ struct result_timings {
+     // Optional speculative metrics - only included when > 0
+     int32_t draft_n = 0;
+     int32_t draft_n_accepted = 0;
++    int32_t draft_n_steps = 0;
++    int32_t draft_n_attempts = 0;
++    int32_t draft_n_empty_attempts = 0;
++    int32_t draft_terminal_off_position = -1;
++    double draft_ms = 0.0;
++    std::vector<int32_t> draft_n_proposed_per_pos;
++    std::vector<int32_t> draft_n_accepted_per_pos;
++    json draft_blocks = json::array();
++    json draft_attempts = json::array();
+ 
+     json to_json() const;
+ };
