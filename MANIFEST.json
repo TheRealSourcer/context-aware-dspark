@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "CITATION.cff",
-      "bytes": 722,
-      "sha256": "86e1860a8d1f443931e1063f1307f056c59f4e35f8385eab33a4702e3e42500e"
+      "bytes": 764,
+      "sha256": "db658fdc5b3467d21eb9bc81e04ca8f27ed4280418d73dda8c5eff582c9920a5"
     },
     {
       "path": "DATA_DICTIONARY.md",
@@ -95,8 +95,8 @@
     },
     {
       "path": "paper/manuscript.md",
-      "bytes": 20083,
-      "sha256": "c975be62b80f39a72d7c856a454a7a0d3b03298c783185774a6039ce9464e9f2"
+      "bytes": 20307,
+      "sha256": "81c5c30522374e631148c81179687f163bc7c29dc276f423165a3b3e61ee838e"
     },
     {
       "path": "paper/supplement.md",

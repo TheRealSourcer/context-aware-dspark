@@ -5,6 +5,7 @@ type: software
 authors:
   - given-names: "Vicente"
     family-names: "Bertolotti"
+    affiliation: "Independent Researcher"
 version: 1.0.0
 date-released: 2026-08-21
 repository-code: "https://github.com/TheRealSourcer/context-aware-dspark"

@@ -2,7 +2,9 @@
 
 **Vicente Bertolotti**
 
-Green Hope High School, 2500 Carpenter Upchurch Road, Cary, NC 27519, USA
+Independent researcher; student at Green Hope High School, 2500 Carpenter Upchurch Road, Cary, NC 27519, USA
+
+This work was conducted independently and was not sponsored, supervised, or endorsed by Green Hope High School.
 
 Corresponding author: Vicente Bertolotti, cuentavicen@gmail.com
 
@@ -114,7 +116,7 @@ OpenAI GPT-5.6 Sol, accessed through OpenCode, assisted with literature discover
 
 ## Funding and Competing Interests
 
-This research received no external funding. Computation used personal or family-owned hardware, and any publication expenses are paid from personal or family funds. The author declares no competing interests.
+This research received no external funding. Computation used personal or family-owned hardware, and any publication expenses are paid from personal or family funds. Green Hope High School did not sponsor, supervise, or endorse the research. The author declares no competing interests.
 
 ## Ethics Statement
 
